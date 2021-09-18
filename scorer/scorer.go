@@ -6,12 +6,20 @@ import (
 	"github.com/cszczepaniak/yahtzee/hand"
 )
 
+var (
+	ErrInvalidHand = errors.New(`hand must have length 5`)
+	ErrInvalidDie  = errors.New(`dice in hand must have a value from 1 to 6`)
+)
+
 func Score(h hand.Hand, strat ScoringStrategy) (int, error) {
 	defer strat.Clear()
 	if len(h) != 5 {
-		return 0, errors.New(`hand must have length 5`)
+		return 0, ErrInvalidHand
 	}
 	for _, n := range h {
+		if n < 1 || n > 6 {
+			return 0, ErrInvalidDie
+		}
 		strat.AtEach(n)
 	}
 	return strat.Accumulate(), nil

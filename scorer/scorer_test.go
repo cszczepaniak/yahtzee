@@ -10,40 +10,52 @@ import (
 	"github.com/cszczepaniak/yahtzee/scorer"
 )
 
+func TestBadHands(t *testing.T) {
+	tests := []struct {
+		desc   string
+		hand   hand.Hand
+		expErr error
+	}{{
+		desc:   `too many in hand`,
+		hand:   []int{1, 2, 3, 4, 5, 6},
+		expErr: scorer.ErrInvalidHand,
+	}, {
+		desc:   `too few in hand`,
+		hand:   []int{1, 2, 3},
+		expErr: scorer.ErrInvalidHand,
+	}, {
+		desc:   `nil hand`,
+		hand:   nil,
+		expErr: scorer.ErrInvalidHand,
+	}, {
+		desc:   `invalid die`,
+		hand:   []int{1, 2, 3, 4, 10},
+		expErr: scorer.ErrInvalidDie,
+	}, {
+		desc:   `valid`,
+		hand:   []int{1, 2, 3, 4, 5},
+		expErr: nil,
+	}}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := scorer.Score(tc.hand, scorer.NewYahtzeeScorer())
+			require.Equal(t, tc.expErr, err)
+		})
+	}
+}
+
 func TestSingleDieScorer(t *testing.T) {
 	for dieVal := 1; dieVal <= 6; dieVal++ {
 		for nOfDie := 0; nOfDie <= 5; nOfDie++ {
-			hand := generateNOfK(nOfDie, dieVal)
-			s := scorer.NewSingleDieScorer(dieVal)
-			shuffleAndAssertScore(t, hand, s, dieVal*nOfDie)
+			shuffleAndAssertScore(
+				t, generateNOfK(nOfDie, dieVal),
+				scorer.NewSingleDieScorer(dieVal),
+				dieVal*nOfDie,
+			)
 		}
 	}
 }
-
-func generateNOfK(n, k int) hand.Hand {
-	res := make([]int, 5)
-	fillWith := k%6 + 1
-	for i := 0; i < n; i++ {
-		res[i] = k
-	}
-	for i := n; i < len(res); i++ {
-		res[i] = fillWith
-	}
-	return res
-}
-
-func shuffleAndAssertScore(t *testing.T, hand hand.Hand, strat scorer.ScoringStrategy, expScore int) {
-	// shuffle and test 5 times to make sure order doesn't matter
-	for i := 0; i < 5; i++ {
-		rand.Shuffle(len(hand), func(i, j int) {
-			hand[i], hand[j] = hand[j], hand[i]
-		})
-		score, err := scorer.Score(hand, strat)
-		require.NoError(t, err)
-		require.Equal(t, expScore, score, hand)
-	}
-}
-
 func TestNOfAKindScorer(t *testing.T) {
 	tests := []struct {
 		n        int
@@ -83,10 +95,7 @@ func TestNOfAKindScorer(t *testing.T) {
 		expScore: 30,
 	}}
 	for _, tc := range tests {
-		s := scorer.NewNOfAKindScorer(tc.n)
-		score, err := scorer.Score(tc.hand, s)
-		require.NoError(t, err)
-		require.Equal(t, tc.expScore, score)
+		shuffleAndAssertScore(t, tc.hand, scorer.NewNOfAKindScorer(tc.n), tc.expScore)
 	}
 }
 
@@ -204,5 +213,29 @@ func TestYahtzeeScorer(t *testing.T) {
 			}
 			shuffleAndAssertScore(t, hand, scorer.NewYahtzeeScorer(), exp)
 		}
+	}
+}
+
+func generateNOfK(n, k int) hand.Hand {
+	res := make([]int, 5)
+	fillWith := k%6 + 1
+	for i := 0; i < n; i++ {
+		res[i] = k
+	}
+	for i := n; i < len(res); i++ {
+		res[i] = fillWith
+	}
+	return res
+}
+
+func shuffleAndAssertScore(t *testing.T, hand hand.Hand, strat scorer.ScoringStrategy, expScore int) {
+	// shuffle and test 5 times to make sure order doesn't matter
+	for i := 0; i < 5; i++ {
+		rand.Shuffle(len(hand), func(i, j int) {
+			hand[i], hand[j] = hand[j], hand[i]
+		})
+		score, err := scorer.Score(hand, strat)
+		require.NoError(t, err)
+		require.Equal(t, expScore, score, hand)
 	}
 }
